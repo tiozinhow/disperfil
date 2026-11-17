@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <base href="./">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>disperfil — seu perfil do Discord com trilha sonora</title>
+  <meta name="description" content="Cole seu ID do Discord e monte um card com sua foto, seu nome e a música que você quiser. Sem login, direto no navegador.">
+  <meta name="theme-color" content="#e8e9e3">
+  <meta property="og:title" content="disperfil — seu perfil do Discord com trilha sonora">
+  <meta property="og:description" content="Cole seu ID do Discord, escolha uma música e leve seu card.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://disbio.io/">
+  <meta property="og:site_name" content="disperfil">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@600,500&display=swap">
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261115-36">
+</head>
+<body>
+  <div class="bg-photo" id="bg-photo" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+  <canvas class="bg-canvas" id="bg-canvas" aria-hidden="true"></canvas>
+
+  <header class="top">
+    <a class="brand" href="./" aria-label="disperfil, início">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span>disperfil</span>
+    </a>
+    <button class="top__help" type="button" data-open-help aria-haspopup="dialog">Como funciona</button>
+    <a class="share-create" href="index.html">Criar o seu card</a>
+  </header>
+
+  <main class="layout">
+    <h1 class="sr-only" id="share-heading" hidden>Perfil no Discord</h1>
+
+    <section class="intro" aria-labelledby="page-title">
+      <h1 id="page-title">Seu perfil,<br>com trilha<br>sonora.</h1>
+      <p class="intro__lead">Cole o ID do Discord. A gente monta o card com sua foto, seu nome, a música e as redes que você escolher.</p>
+
+      <form class="form" id="profile-form" novalidate>
+        <div class="field" id="id-field">
+          <label for="discord-id">ID do Discord</label>
+          <div class="field__row">
+            <input id="discord-id" name="discord-id" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="ex.: 1081004946872352958" aria-describedby="id-hint id-error">
+            <button class="btn btn--solid" type="submit" id="submit-btn">Montar</button>
+          </div>
+          <p class="field__hint" id="id-hint">Não sabe o seu? Ative o modo desenvolvedor em Configurações → Avançado, clique com o botão direito no seu nome e escolha “Copiar ID”.</p>
+          <p class="field__error" id="id-error" role="alert" hidden></p>
+        </div>
+
+        <div class="field" id="music-field">
+          <label for="music-input">Trilha do card</label>
+          <div class="combo">
+            <div class="field__row">
+              <input id="music-input" type="text" autocomplete="off" spellcheck="false" placeholder="Cole o link do Spotify ou busque pelo nome" aria-describedby="music-hint" aria-controls="music-results">
+              <span class="field__spinner" id="music-spinner" hidden aria-hidden="true"></span>
+            </div>
+            <div class="results" id="music-results" hidden></div>
+          </div>
+          <p class="field__hint" id="music-hint">Cole o link de uma música do Spotify (ou do SoundCloud). Ou busque pelo nome: a busca toca a faixa completa pelo SoundCloud.</p>
+
+          <div class="start-at" id="start-at" hidden>
+            <label class="start-at__label" for="start-input">Começa em</label>
+            <div class="start-at__row">
+              <input id="start-input" type="text" inputmode="numeric" placeholder="0:00" value="0:00" aria-describedby="start-hint start-warning">
+              <button class="start-at__use" id="start-use-current" type="button">Usar o momento atual</button>
+            </div>
+            <p class="field__hint" id="start-hint">Quando alguém der play, a música começa nesse ponto.</p>
+            <p class="field__warn" id="start-warning" hidden></p>
+          </div>
+
+          <label class="autoplay-toggle">
+            <input type="checkbox" id="autoplay-toggle">
+            <span>Tocar automaticamente ao abrir o card</span>
+          </label>
+          <p class="field__hint" id="autoplay-hint">O navegador pode bloquear o som até a pessoa clicar na página.</p>
+        </div>
+
+        <div class="field bg-field">
+          <span class="field__label" id="bg-label">Fundo da página</span>
+          <div class="bg-picker" id="bg-picker" role="group" aria-labelledby="bg-label">
+            <button class="bg-option is-active" type="button" data-bg="none" aria-pressed="true">Papel</button>
+            <button class="bg-option" type="button" data-bg="aurora" aria-pressed="false">Aurora</button>
+            <button class="bg-option" type="button" data-bg="waves" aria-pressed="false">Ondas</button>
+            <button class="bg-option" type="button" data-bg="bubbles" aria-pressed="false">Bolhas</button>
+            <button class="bg-option" type="button" data-bg="pulse" aria-pressed="false">Batida</button>
+            <button class="bg-option" type="button" data-bg="stars" aria-pressed="false">Estrelas</button>
+            <button class="bg-option" type="button" data-bg="grid" aria-pressed="false">Grade</button>
+            <button class="bg-option" type="button" data-bg="mesh" aria-pressed="false">Névoa</button>
+            <button class="bg-option" type="button" data-bg="rain" aria-pressed="false">Chuva</button>
+            <button class="bg-option" type="button" data-bg="vortex" aria-pressed="false">Vórtice</button>
+            <button class="bg-option" type="button" data-bg="confetti" aria-pressed="false">Confete</button>
+            <button class="bg-option" type="button" data-bg="blackhole" aria-pressed="false">Buraco negro</button>
+            <button class="bg-option" type="button" data-bg="riso" aria-pressed="false">Riso</button>
+            <button class="bg-option" type="button" data-bg="marble" aria-pressed="false">Mármore</button>
+            <button class="bg-option" type="button" data-bg="glass" aria-pressed="false">Vitral</button>
+            <button class="bg-option" type="button" data-bg="blueprint" aria-pressed="false">Blueprint</button>
+          </div>
+          <p class="field__hint" id="bg-hint">Passe o mouse nos nomes para pré-visualizar o fundo. Clique para escolher.</p>
+          <div class="bg-image">
+            <label class="bg-image__pick" for="bg-image">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17 5.2-5.2a2 2 0 0 1 2.8 0L20 20"/></svg>
+              <span id="bg-image-label">Usar uma imagem de fundo</span>
+            </label>
+            <input class="sr-only" id="bg-image" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
+            <div class="bg-image__thumb" id="bg-image-thumb-wrap" hidden>
+              <img id="bg-image-thumb" alt="">
+              <button class="bg-image__clear" id="bg-image-clear" type="button">Remover</button>
+            </div>
+          </div>
+          <p class="field__hint" id="bg-image-hint">A imagem é comprimida e fica salva no link — por isso o link fica mais longo. Fotos, prints e artes funcionam bem.</p>
+          <label class="bg-reactive">
+            <input type="checkbox" id="bg-reactive" checked>
+            <span>Reagir à música</span>
+          </label>
+        </div>
+
+        <div class="field card-image-field">
+          <span class="field__label" id="card-image-label-title">Fotos flutuantes <span class="photo-count" id="photo-count">0/5</span></span>
+          <div class="photo-add">
+            <label class="bg-image__pick" for="card-image">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17 5.2-5.2a2 2 0 0 1 2.8 0L20 20"/></svg>
+              <span id="card-image-label">Adicionar foto</span>
+            </label>
+            <input class="sr-only" id="card-image" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
+            <div class="card-image-url">
+              <input id="card-image-url" type="url" placeholder="ou cole o link de uma imagem (https://...)" autocomplete="off" spellcheck="false" aria-label="Link de uma foto flutuante">
+              <button class="btn btn--ghost btn--sm" id="card-image-url-apply" type="button">Adicionar link</button>
+            </div>
+          </div>
+          <div class="photo-list" id="photo-list"></div>
+          <p class="field__hint" id="card-image-hint">Até 5 fotos, cada uma com sua legenda. Arraste para mover, clique para ampliar. Por padrão ficam atrás do card; a opção “Na frente” de cada foto traz para a frente. Não entram no PNG.</p>
+        </div>
+
+        <div class="field theme-field">
+          <span class="field__label" id="theme-label">Tema da página</span>
+          <div class="theme-picker" id="theme-picker" role="group" aria-labelledby="theme-label">
+            <button class="theme-option is-active" type="button" data-theme="light" aria-pressed="true">Claro</button>
+            <button class="theme-option" type="button" data-theme="dark" aria-pressed="false">Escuro</button>
+            <label class="theme-color" id="theme-color-label">
+              <input type="color" id="theme-color" value="#e8e9e3" aria-label="Escolher a cor de fundo">
+              <span>Personalizar</span>
+            </label>
+          </div>
+          <div class="theme-gradients" id="theme-gradients" role="group" aria-label="Gradientes da página">
+            <span class="theme-gradients__label">Gradiente</span>
+            <button class="theme-gradient" type="button" data-gradient="sunset" aria-label="Pôr do sol" aria-pressed="false" title="Pôr do sol"></button>
+            <button class="theme-gradient" type="button" data-gradient="ocean" aria-label="Oceano" aria-pressed="false" title="Oceano"></button>
+            <button class="theme-gradient" type="button" data-gradient="neon" aria-label="Neon" aria-pressed="false" title="Neon"></button>
+            <button class="theme-gradient" type="button" data-gradient="mint" aria-label="Menta" aria-pressed="false" title="Menta"></button>
+          </div>
+          <div class="gradient-builder" id="gradient-builder">
+            <span class="gradient-builder__label">Gradiente personalizado</span>
+            <label class="gradient-color" title="Cor inicial">
+              <input type="color" id="gradient-start" value="#7c6cff" aria-label="Cor inicial do gradiente">
+              <span>De</span>
+            </label>
+            <label class="gradient-color" title="Cor final">
+              <input type="color" id="gradient-end" value="#ff7a9c" aria-label="Cor final do gradiente">
+              <span>Até</span>
+            </label>
+            <label class="gradient-angle">
+              <span>Ângulo</span>
+              <input type="range" id="gradient-angle" min="0" max="360" step="5" value="135" aria-label="Ângulo do gradiente">
+              <span id="gradient-angle-value">135°</span>
+            </label>
+            <button class="theme-gradient theme-gradient--custom" id="gradient-custom" type="button" data-gradient="custom" aria-label="Usar gradiente personalizado" aria-pressed="false" title="Usar gradiente personalizado"></button>
+          </div>
+        </div>
+
+        <div class="field field--extras">
+          <div class="field__toggles">
+            <button class="field__toggle" id="status-toggle" type="button" aria-expanded="false" aria-controls="status-wrap">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar um recado
+            </button>
+            <button class="field__toggle" id="links-toggle" type="button" aria-expanded="false" aria-controls="links-wrap">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Adicionar redes
+            </button>
+            <button class="field__toggle" id="details-toggle" type="button" aria-expanded="false" aria-controls="details-wrap">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.9-3.6 3.6-5.2 7-5.2s6.1 1.6 7 5.2"/></svg>
+              Mais detalhes
+            </button>
+          </div>
+
+          <div class="field__extra" id="status-wrap" hidden>
+            <label class="status__label" for="status-input">Recado</label>
+            <div class="field__row">
+              <input id="status-input" type="text" maxlength="60" placeholder="me chama pra jogar" autocomplete="off">
+              <span class="field__count" id="status-count">0/60</span>
+            </div>
+          </div>
+
+          <div class="field__extra" id="links-wrap" hidden>
+            <label class="status__label" for="link-input">Rede ou site</label>
+            <div class="field__row">
+              <input id="link-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="instagram.com/seuuser" aria-describedby="links-hint link-error">
+              <button class="btn btn--solid btn--sm" id="link-add" type="button">Adicionar</button>
+            </div>
+            <p class="field__hint" id="links-hint">Instagram, TikTok, X, YouTube, Twitch, GitHub ou um site. Cole o link completo.</p>
+            <p class="field__error" id="link-error" role="alert" hidden></p>
+            <ul class="link-chips" id="link-chips" hidden></ul>
+          </div>
+
+          <div class="field__extra" id="details-wrap" hidden>
+            <div class="details-group">
+              <label class="status__label" for="pronouns-input">Pronomes</label>
+              <div class="field__row">
+                <input id="pronouns-input" type="text" maxlength="24" placeholder="ele/dele" autocomplete="off">
+              </div>
+            </div>
+            <div class="details-group">
+              <label class="status__label" for="location-input">Localização</label>
+              <div class="combo location-combo">
+                <div class="field__row">
+                  <input id="location-input" type="text" maxlength="40" placeholder="São Paulo, SP" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="location-results" aria-describedby="location-hint">
+                  <span class="field__spinner" id="location-spinner" hidden aria-hidden="true"></span>
+                </div>
+                <div class="results location-results" id="location-results" role="listbox" aria-label="Sugestões de localização" hidden></div>
+              </div>
+              <p class="field__hint" id="location-hint">Escolha uma sugestão ou digite do seu jeito.</p>
+            </div>
+            <div class="details-group">
+              <label class="status__label" for="bio-input">Sobre mim</label>
+              <div class="field__row field__row--area">
+                <textarea id="bio-input" maxlength="160" rows="2" placeholder="Uma frase sobre você..."></textarea>
+                <span class="field__count" id="bio-count">0/160</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <section class="stage" aria-label="Prévia do card">
+      <div class="stage__glow" id="stage-glow" aria-hidden="true"></div>
+      <div class="floating-photos" id="floating-photos"></div>
+
+      <div class="stage__wrap">
+        <article class="card is-empty" id="card" aria-busy="false">
+          <div class="card__banner" id="card-banner"></div>
+          <div class="card__body">
+            <div class="card__avatar-wrap">
+              <div class="card__avatar" id="card-avatar"></div>
+              <img class="card__decoration" id="card-decoration" alt="" width="106" height="106" hidden>
+              <span class="card__dot" id="card-status-dot" role="img" hidden></span>
+            </div>
+
+            <div class="card__identity">
+              <h2 class="card__name" id="card-name">Seu card aparece aqui</h2>
+              <p class="card__handle" id="card-handle">Cole um ID pra começar</p>
+            </div>
+
+            <ul class="card__badges" id="card-badges" hidden></ul>
+
+            <div class="card__divider" id="card-divider" hidden></div>
+
+            <p class="card__status" id="card-status" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+              <span id="card-status-text"></span>
+            </p>
+
+            <div class="card__bio" id="card-bio" hidden>
+              <p class="card__bio-label">Sobre mim</p>
+              <p class="card__bio-text" id="card-bio-text"></p>
+            </div>
+
+            <p class="card__location" id="card-location" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>
+              <span id="card-location-text"></span>
+            </p>
+
+            <div class="music" id="music" data-mode="preview" hidden>
+              <div class="music__cover">
+                <img id="music-cover" alt="" width="40" height="40">
+                <button class="music__play" id="music-play" type="button" aria-label="Tocar prévia">
+                  <svg class="icon icon--play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+                  <svg class="icon icon--pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><rect x="7" y="5" width="3.6" height="14" rx="1"/><rect x="13.4" y="5" width="3.6" height="14" rx="1"/></svg>
+                </button>
+              </div>
+
+              <div class="music__meta">
+                <p class="music__label">
+                  <span class="music__icon" id="music-icon-spotify" hidden>
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0Zm5.5 17.3a.75.75 0 0 1-1.03.25c-2.82-1.72-6.37-2.11-10.55-1.16a.75.75 0 1 1-.33-1.46c4.57-1.04 8.5-.6 11.66 1.34.35.22.46.68.25 1.03Zm1.47-3.27a.94.94 0 0 1-1.29.31c-3.23-1.98-8.15-2.56-11.97-1.4a.94.94 0 1 1-.55-1.8c4.36-1.32 9.78-.67 13.5 1.6.44.27.58.85.31 1.29Zm.13-3.4C15.24 8.34 8.83 8.12 5.13 9.24a1.13 1.13 0 1 1-.66-2.16c4.25-1.29 11.32-1.04 15.77 1.6a1.13 1.13 0 0 1-1.15 1.95Z"/></svg>
+                  </span>
+                  <span class="music__icon" id="music-icon-preview">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><rect x="3" y="10" width="2.4" height="4" rx="1.2"/><rect x="7.5" y="6" width="2.4" height="12" rx="1.2"/><rect x="12" y="8" width="2.4" height="8" rx="1.2"/><rect x="16.5" y="4" width="2.4" height="16" rx="1.2"/><rect x="21" y="9" width="2.4" height="6" rx="1.2" opacity=".45"/></svg>
+                  </span>
+                  <span class="music__icon" id="music-icon-youtube" hidden>
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z"/></svg>
+                  </span>
+                  <span class="music__icon" id="music-icon-soundcloud" hidden>
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M6.2 17.8a4.2 4.2 0 0 1-.3-8.4 5.8 5.8 0 0 1 11.2 1.4 3.6 3.6 0 0 1-.6 7H6.2Zm2.1-10.2c.2 0 .3.1.3.3v7.8c0 .2-.1.3-.3.3s-.3-.1-.3-.3V7.9c0-.2.1-.3.3-.3Zm2 .8c.2 0 .3.1.3.3v7c0 .2-.1.3-.3.3s-.3-.1-.3-.3v-7c0-.2.1-.3.3-.3Zm2.2-1.1c.2 0 .3.1.3.3v8.1c0 .2-.1.3-.3.3s-.3-.1-.3-.3V7.6c0-.2.1-.3.3-.3Z"/></svg>
+                  </span>
+                  <span id="music-label">Tocando agora</span>
+                  <span class="music__eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                </p>
+                <p class="music__title" id="music-title"></p>
+                <p class="music__artist" id="music-artist"></p>
+              </div>
+
+              <button class="music__expand" id="music-expand" type="button" aria-label="Abrir player do Spotify" aria-expanded="false" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+
+              <button class="music__toggle" id="music-toggle" type="button" aria-label="Tocar no Spotify" hidden>
+                <svg class="icon icon--play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+                <svg class="icon icon--pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><rect x="7" y="5" width="3.6" height="14" rx="1"/><rect x="13.4" y="5" width="3.6" height="14" rx="1"/></svg>
+              </button>
+
+              <div class="music__progress" id="music-progress">
+                <div class="music__bar" id="music-bar" role="slider" tabindex="0" aria-label="Progresso da música" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00 de 0:00" aria-disabled="true" title="Clique ou arraste para avançar">
+                  <span id="music-fill"></span>
+                  <span class="music__thumb" id="music-thumb" aria-hidden="true"></span>
+                </div>
+                <div class="music__times"><span id="music-current">0:00</span><span id="music-duration">0:30</span></div>
+              </div>
+            </div>
+
+            <div class="spotify" id="spotify-slot" hidden></div>
+            <div class="spotify-host" id="spotify-host" aria-hidden="true" inert></div>
+            <div class="yt-host" id="yt-host" aria-hidden="true" inert></div>
+            <div class="sc-host" id="sc-host" aria-hidden="true" inert></div>
+
+            <div class="card__links" id="card-links" hidden></div>
+
+            <p class="card__since" id="card-since" hidden></p>
+
+            <button class="card__example" id="example-btn" type="button">Ver um exemplo</button>
+          </div>
+        </article>
+      </div>
+
+      <div class="stage__actions" id="card-actions" hidden>
+        <button class="btn btn--solid btn--sm" id="download-btn" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar card
+        </button>
+        <button class="btn btn--ghost btn--sm" id="copy-btn" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Copiar link
+        </button>
+        <button class="btn btn--text btn--sm" id="clear-btn" type="button">Limpar</button>
+      </div>
+
+      <div class="stage__share" id="stage-share" hidden>
+        <label class="stage__share-label" for="share-name">Link personalizado</label>
+        <span class="stage__share-prefix" id="share-prefix" aria-hidden="true">#k=</span>
+        <input id="share-name" type="text" maxlength="32" placeholder="meu-card" autocomplete="off" spellcheck="false" aria-describedby="share-name-hint">
+      </div>
+      <p class="stage__share-hint" id="share-name-hint" hidden>Opcional. Sem nome, o link curto usa um código aleatório. O nome precisa estar livre.</p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Dados públicos via JAPI. Música via SoundCloud, Spotify e Apple Music.</p>
+    <p>Feito no navegador, sem login.</p>
+  </footer>
+
+  <dialog class="help" id="help" aria-labelledby="help-title">
+    <div class="help__inner">
+      <div class="help__top">
+        <h2 id="help-title">Como funciona</h2>
+        <button class="help__close" type="button" data-close-help aria-label="Fechar">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+      </div>
+      <ol class="help__steps">
+        <li><strong>Cole o ID do Discord.</strong> Ative o modo desenvolvedor em Configurações → Avançado, clique com o botão direito no seu nome e escolha “Copiar ID”.</li>
+        <li><strong>Escolha a trilha.</strong> Busque pelo nome e a faixa completa toca pelo SoundCloud. Também dá pra colar um link do Spotify ou do SoundCloud. Dá pra definir em que minuto ela começa.</li>
+        <li><strong>Deixe com a sua cara.</strong> Escolha um fundo animado — inclusive Estrelas, Grade e Névoa — ou use uma imagem sua. Troque o tema e adicione pronomes, localização e bio.</li>
+        <li><strong>Leve o card.</strong> Baixe em PNG ou copie o link. O link abre só o card para quem receber. O ID, a música, o recado, as redes, os detalhes, a imagem e o tema ficam salvos no endereço.</li>
+      </ol>
+      <p class="help__note">O card mostra dados públicos do seu perfil. Nada de login, nada de senha.</p>
+      <p class="help__note">A música toca no card. O Discord não permite mudar sua presença por fora, então nada é alterado na sua conta.</p>
+      <p class="help__fine">Não afiliado ao Discord, Spotify, SoundCloud ou Apple.</p>
+    </div>
+  </dialog>
+
+  <dialog class="photo-dialog" id="photo-dialog" aria-labelledby="photo-dialog-title">
+    <div class="photo-dialog__top">
+      <h2 id="photo-dialog-title">Foto flutuante</h2>
+      <button class="help__close" type="button" data-close-photo aria-label="Fechar">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+    </div>
+    <img id="photo-dialog-img" alt="">
+    <p class="photo-dialog__caption" id="photo-dialog-caption" hidden></p>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <noscript>
+    <p class="noscript">Este site precisa de JavaScript para montar o card.</p>
+  </noscript>
+
+  <script src="app.js?v=20261115-36" defer></script>
+</body>
+</html>
