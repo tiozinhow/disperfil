@@ -61,22 +61,25 @@ continua funcionando com links `#k=...`. `python -m http.server` e
 - Adicionar **pronomes, localização e uma bio** no card, além do recado. A
   localização tem sugestões de cidades enquanto você digita.
 - Definir em que minuto a música começa quando alguém der play (ex.: `1:47`), ou
-  usar o momento atual do player.
+  usar o momento atual do player. Se o ponto ficar a menos de 2 segundos do fim,
+  o card avisa e começa do início.
 - Escolher se o card **começa tocando automaticamente** ou só depois de um
-  clique. O navegador pode bloquear o autoplay até a pessoa interagir com a
-  página.
+  clique. O navegador pode bloquear o autoplay até a pessoa interagir; nesse caso
+  o card mostra **“Toque para ouvir”** e o primeiro toque na página libera o som.
 - **Música:**
   - buscar pelo nome → resultados do SoundCloud com a faixa completa, com
     play/pause, barra de progresso e tempos. O site tenta versões alternativas
     automaticamente quando a primeira é curta ou não abre;
+  - se o SoundCloud/Jina não responder, a busca usa **versões completas do
+    YouTube**; só se nenhum dos dois tiver a música ela cai para prévias de 30
+    segundos do iTunes;
   - link de faixa ou episódio do Spotify → toca na barra do card, com
-    play/pause e progresso ao vivo. O player oficial fica escondido; não entra
-    nenhum card extra;
+    play/pause e progresso ao vivo. Se o Spotify só liberar a prévia de 30s
+    (sem sessão logada), o card troca automaticamente para a versão completa no
+    YouTube;
   - link de álbum ou playlist do Spotify → abre o player compacto do Spotify no
     card;
-  - link de faixa do SoundCloud → toca a faixa completa na barra;
-  - se o SoundCloud não responde ou não tem uma versão completa, a busca cai
-    para prévias de 30 segundos do iTunes.
+  - link de faixa do SoundCloud → toca a faixa completa na barra.
 - Baixar o card em PNG (desenhado em canvas, 2x, sem dependências).
 - Avançar a música: clique ou arraste na barra de progresso. As setas do
   teclado também funcionam quando a barra está focada.
@@ -94,7 +97,7 @@ continua funcionando com links `#k=...`. `python -m http.server` e
   exista.
 - ID, música, recado, redes, pronomes, local, bio, imagem de fundo, fotos,
   legendas, posições, tema e começo da música ficam no hash
-  (`#u=...&m=sp:...|sc:...|it:...&mt=...&ma=...&mc=...&md=...&s=...&l=...&pr=...&loc=...&bio=...&st=...&ap=1&bg=...&bgm=1&th=gradient&tg=custom&gs=...&ge=...&ga=...&bgi=...&ph=[...]&v=card`).
+  (`#u=...&m=sp:...|sc:...|yt:...|it:...&mt=...&ma=...&mc=...&md=...&s=...&l=...&pr=...&loc=...&bio=...&st=...&ap=1&bg=...&bgm=1&th=gradient&tg=custom&gs=...&ge=...&ga=...&bgi=...&ph=[...]&v=card`).
   O `ph` guarda até 5 fotos em JSON (`s` é a prévia, `h` a versão HD usada no
   link curto, `c` a legenda, `x`/`y` a posição, `r` a rotação, `f=1` quando fica
   na frente e `t=1` quando mostra a foto inteira, sem cortar). Use `bgm=0` para
@@ -105,7 +108,7 @@ continua funcionando com links `#k=...`. `python -m http.server` e
 | O quê | Fonte |
 | --- | --- |
 | Perfil (foto, banner, nome, badges, criação, presença) | [JAPI](https://japi.rest), API pública que espelha a API do Discord |
-| Busca de música | Página pública de faixas do SoundCloud lida pelo [Jina Reader](https://r.jina.ai) |
+| Busca de música | Página pública de faixas do SoundCloud lida pelo [Jina Reader](https://r.jina.ai) e busca completa no YouTube via [Piped](https://piped.video) como reserva |
 | Player da busca | [SoundCloud Widget API](https://developers.soundcloud.com/docs/api/html5-widget), em um iframe de 1px |
 | Fallback de busca e prévia de 30s | iTunes Search API (sem chave) |
 | Metadados de links do Spotify | Spotify oEmbed |
@@ -158,18 +161,19 @@ seria preciso uma função de servidor/SSR.
 - A música toca **no card**, não na sua presença real do Discord. O Discord não
   permite alterar a presença de uma conta por fora; quem mostra o Spotify é o
   app do Spotify conectado.
-- Faixas do Spotify tocam a prévia de 30 segundos quando você não está logado
-  no Spotify. Se estiver logado, o player libera a faixa completa. Em ambos os
-  casos, o áudio roda no player oficial oculto e os controles ficam na barra.
+- Faixas do Spotify tocam no player oficial. Se a sessão não estiver logada e o
+  Spotify liberar só a prévia de 30 segundos, o card procura automaticamente a
+  mesma música no YouTube e troca para a versão completa. Se estiver logado, o
+  player libera a faixa completa no próprio Spotify. Os controles ficam na barra.
 - Álbuns e playlists continuam usando o player compacto do Spotify, porque não
   têm uma faixa única para mostrar na barra.
 - Só dados públicos. O site não pede login, não acessa DMs e não altera nada na
   sua conta.
 - **Busca x link:** a busca por nome usa faixas públicas do SoundCloud e tenta
   versões alternativas automaticamente quando a primeira é curta ou não abre.
-  Isso costuma tocar a música inteira sem login. Se o SoundCloud não tiver uma
-  versão completa, a busca cai para o iTunes e toca 30s. Nada é baixado nem
-  convertido.
+  Se o SoundCloud/Jina não responder ou não tiver a versão completa, a busca usa
+  o YouTube via Piped. Só se nenhum dos dois tiver a música ela cai para o iTunes
+  e toca 30s. Nada é baixado nem convertido.
 - O PNG não inclui o player; inclui a barra, a capa, o progresso, a bio, o local,
   os pronomes e as redes.
 - O fundo animado é uma camada visual (canvas) atrás da página e fica em
@@ -207,13 +211,16 @@ seria preciso uma função de servidor/SSR.
   `http://127.0.0.1:5500/`; para outra pessoa abrir, o site precisa estar
   hospedado ou na mesma máquina/rede.
 - O autoplay é uma tentativa: o navegador pode exigir um clique antes de liberar
-  som, principalmente no link compartilhado. A opção fica salva em `ap=1`.
+  som, principalmente no link compartilhado. O card mostra “Toque para ouvir” e
+  o primeiro toque na página libera; depois disso o botão de play funciona normal.
+  A opção fica salva em `ap=1`.
 - As sugestões de localização vêm do Photon; o texto digitado é enviado a esse
   serviço. Se ele falhar, aparecem cidades pré-carregadas.
 - A busca de música envia o termo digitado ao Jina Reader, que lê a página
   pública do SoundCloud. Nenhum dado do perfil é enviado.
 - O “Começa em” funciona dentro da duração real (faixa completa). Se o ponto
-  passar do fim da prévia de 30s, aparece um aviso e o player para no fim.
+  ficar a menos de 2 segundos do fim, o card avisa e começa do início em vez de
+  terminar na hora.
 - O tema personalizado calcula texto claro/escuro pela luminância da cor (ou da
   cor média do gradiente); gradientes com cores muito claras e muito escuras ao
   mesmo tempo podem reduzir o contraste em uma das pontas.

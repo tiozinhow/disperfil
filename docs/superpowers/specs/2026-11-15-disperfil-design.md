@@ -10,8 +10,9 @@ brincar, compartilhar e baixar como imagem.
 - Um ID, um card: funcionar sem login, sem token e sem instalar nada.
 - Parecer um perfil do Discord de verdade, não um formulário genérico.
 - Música com reprodução real: a busca por nome usa faixas públicas do
-  SoundCloud e tenta versões alternativas até achar uma completa. Links do
-  Spotify continuam usando o player oficial.
+  SoundCloud e tenta versões alternativas até achar uma completa. Se o SoundCloud
+  falhar, usa o YouTube. Links do Spotify continuam usando o player oficial; se
+  só houver prévia de 30s, o card troca para a versão completa no YouTube.
 - Insígnias do Discord como ícones de verdade, não pílulas de texto.
 - Redes sociais com ícone e @ no card, salvas no link compartilhado, como botões
   que deixam claro o redirecionamento.
@@ -85,6 +86,8 @@ polaroid pode flutuar ao redor dele.
   são trocadas automaticamente.
 - Modo Spotify: a própria barra é o player, com play/pause e progresso vindo da
   iFrame API; o iframe fica oculto. Álbuns e playlists usam o player compacto.
+  Se o Spotify liberar só a prévia de 30s, o card troca para a versão completa no
+  YouTube via Piped.
 - Insígnias reais em SVG, com tooltip; o PNG desenha os mesmos ícones.
 - Modo prévia: play/pause, barra de progresso e tempos reais.
 - Barra de progresso clicável e arrastável (seek no SoundCloud, Spotify e na
@@ -93,7 +96,7 @@ polaroid pode flutuar ao redor dele.
 - Redes opcionais: o campo detecta Instagram, TikTok, X, YouTube, Twitch,
   GitHub, Spotify ou site; mostra chips no formulário e a linha de ícones + @
   no card.
-- Hash da URL guarda `u` (ID), `m` (`sp:`, `sc:` ou `it:`), `mt`/`ma`/`mc`/`md`
+- Hash da URL guarda `u` (ID), `m` (`sp:`, `sc:`, `yt:` ou `it:`), `mt`/`ma`/`mc`/`md`
   (título, artista, capa e duração), `s` (recado), `l` (links), `pr`
   (pronomes), `loc` (local), `bio`, `st` (começo em segundos), `ap=1` (autoplay),
   `bg` (fundo), `bgm=1`/`0` (reagir ou não à música), `th` (tema), `bgc` (cor
@@ -152,12 +155,13 @@ polaroid pode flutuar ao redor dele.
   é calculado pela luminância da cor (ou da média do gradiente).
 - Detalhes: pronomes no @, localização com pin e sugestões, e bio de até 160
   caracteres.
-- Começo da música: campo `mm:ss`; aplicado no primeiro play (seek no SoundCloud
-  e no Spotify, `currentTime` na prévia). O player tenta o seek depois que
-  começa, com retry por alguns segundos, e avisa se o ponto passar do fim.
+- Começo da música: campo `mm:ss`; aplicado no primeiro play (seek no SoundCloud,
+  Spotify e YouTube, `currentTime` na prévia). O player tenta o seek depois que
+  começa, com retry por alguns segundos. Se o ponto ficar a menos de 2s do fim,
+  avisa e começa do início.
 - Autoplay opcional: quando ligado, tenta tocar ao carregar a faixa (inclusive
   no link compartilhado). O navegador pode bloquear até um clique; nesse caso o
-  botão de play continua disponível.
+  card mostra “Toque para ouvir” e o primeiro toque na página libera o som.
 - Redes no card: pílulas com ícone, @ e seta de link externo.
 - Modo apresentação: o botão “Copiar link” gera um link curto `#k=...` com
   `v=card`; a página mostra só o card centralizado e uma CTA “Criar o seu”, sem
@@ -175,8 +179,10 @@ polaroid pode flutuar ao redor dele.
   quando disponível, não um analisador de áudio real: o áudio do SoundCloud e do
   Spotify fica em iframe de outro domínio e não é acessível para FFT.
 - A busca por nome usa faixas públicas do SoundCloud e tenta versões completas
-  alternativas. Se o Jina Reader, o SoundCloud ou o widget falharem, o fallback
-  do iTunes toca 30s. Links do Spotify continuam disponíveis.
+  alternativas. Se o Jina Reader, o SoundCloud ou o widget falharem, tenta o
+  YouTube via Piped; se nenhum tiver a música, o iTunes toca 30s. Links do
+  Spotify continuam disponíveis; prévias de 30s são trocadas pela versão
+  completa no YouTube.
 - O tema personalizado escolhe texto claro/escuro pela luminância; gradientes
   com cores muito claras e muito escuras ao mesmo tempo podem reduzir contraste
   em uma das pontas.

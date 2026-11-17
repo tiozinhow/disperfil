@@ -344,6 +344,8 @@
     locationOpen: false,
     locationPicked: false,
     pendingPlay: false,
+    autoStartPending: false,
+    autoplayNoticeShown: false,
     seeking: false,
     results: [],
     searchSeq: 0,
@@ -2260,23 +2262,23 @@
       const audio = state.audio;
       total = audio && Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 30;
     } else if (track.mode === "spotify") {
-      total = (state.spotifyDuration || track.durationMs || 0) / 1000;
+      total = (track.durationMs || state.spotifyDuration || 0) / 1000;
     } else if (track.mode === "youtube") {
       total = (state.youtubeDuration || track.durationMs || 0) / 1000;
     } else if (track.mode === "soundcloud") {
       total = (state.scDuration || track.durationMs || 0) / 1000;
     }
 
-    const over = total > 0 && state.startAt > total - 0.5;
+    const over = total > 0 && state.startAt > total - 2;
     els.startWarning.hidden = !over;
     if (over) {
       els.startWarning.textContent = track.mode === "preview"
-        ? `A prévia tem ${fmtTime(total)}. Escolha um ponto menor ou use uma faixa completa.`
+        ? `A prévia tem ${fmtTime(total)}. Escolha um ponto pelo menos 2 segundos antes do fim.`
         : track.mode === "youtube"
-          ? `Esse vídeo tem ${fmtTime(total)}. Escolha um ponto menor.`
+          ? `Esse vídeo tem ${fmtTime(total)}. Escolha um ponto pelo menos 2 segundos antes do fim.`
           : track.mode === "soundcloud"
-            ? `Essa faixa tem ${fmtTime(total)}. Escolha um ponto menor.`
-            : `Essa versão tem ${fmtTime(total)}. Entre no Spotify para ouvir a faixa completa ou escolha um ponto menor.`;
+            ? `Essa faixa tem ${fmtTime(total)}. Escolha um ponto pelo menos 2 segundos antes do fim.`
+            : `Essa versão tem ${fmtTime(total)}. Entre no Spotify para ouvir a faixa completa ou escolha um ponto pelo menos 2 segundos antes do fim.`;
     }
   }
 
@@ -2295,8 +2297,59 @@
     state.scStartAttempts = 0;
   }
 
+  function knownTrackDurationSeconds() {
+    const track = state.track;
+    if (!track) return 0;
+    if (track.mode === "preview") {
+      const audio = state.audio;
+      return audio && state.audioTrackId === track.id && Number.isFinite(audio.duration) && audio.duration > 0
+        ? audio.duration
+        : 30;
+    }
+    if (track.mode === "spotify") return (track.durationMs || state.spotifyDuration || 0) / 1000;
+    if (track.mode === "youtube") return (state.youtubeDuration || track.durationMs || 0) / 1000;
+    if (track.mode === "soundcloud") return (state.scDuration || track.durationMs || 0) / 1000;
+    return 0;
+  }
+
+  function autoplayNeedsTap() {
+    return Boolean(state.autoplay && state.autoStartPending);
+  }
+
+  function armAutoplayNotice(track) {
+    if (!track || state.autoplayNoticeShown) return;
+    state.autoplayNoticeShown = true;
+    setTimeout(() => {
+      if (state.track !== track || !state.autoStartPending) return;
+      const playing = (track.mode === "spotify" && !state.spotifyPaused)
+        || (track.mode === "youtube" && state.youtubePlaying)
+        || (track.mode === "soundcloud" && state.scPlaying)
+        || (track.mode === "preview" && state.audio && !state.audio.paused);
+      if (playing) return;
+      toast("O navegador bloqueou o som automático. Toque na página ou no play para ouvir.");
+    }, 1600);
+  }
+
+  function validateStartDuration(totalSeconds, announce = true) {
+    const total = Number(totalSeconds) || 0;
+    if (state.startAt <= 0 || total <= 2) return false;
+    if (state.startAt < total - 2) return false;
+    state.startAt = 0;
+    resetStartSeek();
+    renderStartField();
+    scheduleHash();
+    if (announce) toast(`Essa faixa tem ${fmtTime(total)}. Comecei do início.`);
+    return true;
+  }
+
   function setStartAt(seconds) {
-    state.startAt = Math.max(0, Math.min(6 * 3600, Math.round(Number(seconds) || 0)));
+    let value = Math.max(0, Math.min(6 * 3600, Math.round(Number(seconds) || 0)));
+    const total = knownTrackDurationSeconds();
+    if (total > 2 && value >= total - 2) {
+      value = 0;
+      toast(`Essa faixa tem ${fmtTime(total)}. Comecei do início.`);
+    }
+    state.startAt = value;
     resetStartSeek();
     renderStartField();
     writeHash();
@@ -3498,19 +3551,25 @@
     audio.addEventListener("loadedmetadata", () => {
       if (Number.isFinite(audio.duration) && audio.duration > 0 && !state.seeking) {
         setProgressUI(audio.currentTime * 1000, audio.duration * 1000);
+        validateStartDuration(audio.duration);
       }
       applyPreviewStart(audio);
       renderStartField();
     });
 
     audio.addEventListener("play", () => {
+      state.autoStartPending = false;
+      els.music.classList.remove("is-needs-tap");
       els.music.classList.add("is-playing");
+      els.musicLabel.textContent = "Tocando agora";
       els.musicPlay.setAttribute("aria-label", "Pausar prévia");
       setBgPlaying(true);
     });
 
     audio.addEventListener("pause", () => {
       els.music.classList.remove("is-playing");
+      els.musicLabel.textContent = autoplayNeedsTap() ? "Toque para ouvir" : "Prévia";
+      els.music.classList.toggle("is-needs-tap", autoplayNeedsTap());
       els.musicPlay.setAttribute("aria-label", "Tocar prévia");
       setBgPlaying(false);
     });
@@ -3544,6 +3603,7 @@
     }
     applyPreviewStart(audio);
     audio.play().catch(() => {});
+    armAutoplayNotice(track);
   }
 
   function togglePreview() {
@@ -3643,6 +3703,20 @@
     state.spotifyDuration = duration;
     state.spotifyPaused = paused;
 
+    const canonical = Math.max(state.track?.durationMs || 0, state.canonicalDurationMs || 0);
+    if (!paused) {
+      state.autoStartPending = false;
+      els.music.classList.remove("is-needs-tap");
+    }
+    if (duration > 0) {
+      const shortTrackPreview = duration < 60000 && canonical > 90000 && state.track?.type === "track";
+      if (shortTrackPreview) {
+        if (!state.track.fallbackTried) fallbackSpotifyToFull(state.track);
+      } else if (canonical > 0) {
+        validateStartDuration(canonical / 1000);
+      }
+    }
+
     if (atEnd) {
       state.startApplied = false;
       state.startSeeking = false;
@@ -3688,7 +3762,10 @@
 
     setBgPlaying(!paused);
     els.music.classList.toggle("is-playing", !paused);
-    els.musicLabel.textContent = paused ? "Spotify" : "Tocando agora";
+    els.musicLabel.textContent = paused
+      ? (autoplayNeedsTap() ? "Toque para ouvir" : "Spotify")
+      : "Tocando agora";
+    els.music.classList.toggle("is-needs-tap", paused && autoplayNeedsTap());
     els.musicToggle.setAttribute("aria-label", paused ? "Tocar no Spotify" : "Pausar");
     renderStartField();
   }
@@ -3743,10 +3820,26 @@
 
       renderMusic();
 
+      if (state.startAt > 0) {
+        const canonical = Math.max(track.durationMs || 0, state.canonicalDurationMs || 0);
+        const total = canonical || state.spotifyDuration || 0;
+        if (total > 0 && state.startAt >= total / 1000 - 2) {
+          validateStartDuration(total / 1000);
+        } else {
+          const target = total > 0
+            ? Math.min(state.startAt * 1000, Math.max(0, total - 1000))
+            : state.startAt * 1000;
+          try { controller.seek(target / 1000); } catch {}
+          state.spotifyPosition = target;
+          if (total > 0) setProgressUI(target, total);
+        }
+      }
+
       if (state.pendingPlay) {
         state.pendingPlay = false;
         if (state.startAt > 0 && !state.startApplied) requestSpotifyStart();
         controller.play();
+        armAutoplayNotice(track);
       }
     } catch {
       if (state.track !== track) return;
@@ -3971,16 +4064,21 @@
             state.playerMode = "youtube";
             const duration = event.target.getDuration() || 0;
             state.youtubeDuration = duration > 0 ? duration * 1000 : (track.durationMs || 0);
+            validateStartDuration(state.youtubeDuration / 1000);
             renderMusic();
+            if (state.startAt > 0 && !state.startApplied) applyYouTubeStart();
             if (state.pendingPlay) {
               state.pendingPlay = false;
               playYouTube();
+              armAutoplayNotice(track);
             }
           },
           onStateChange: (event) => {
             if (state.track !== track) return;
             if (event.data === YT.PlayerState.PLAYING) {
               state.youtubePlaying = true;
+              state.autoStartPending = false;
+              els.music.classList.remove("is-needs-tap");
               setBgPlaying(true);
               els.music.classList.add("is-playing");
               els.musicLabel.textContent = "Tocando agora";
@@ -3991,7 +4089,8 @@
               stopYouTubeTimer();
               setBgPlaying(false);
               els.music.classList.remove("is-playing");
-              els.musicLabel.textContent = "YouTube";
+              els.musicLabel.textContent = autoplayNeedsTap() ? "Toque para ouvir" : "YouTube";
+              els.music.classList.toggle("is-needs-tap", autoplayNeedsTap());
               els.musicToggle.setAttribute("aria-label", "Tocar no YouTube");
               const duration = youtubePlayer?.getDuration() || 0;
               if (duration > 0) state.youtubeDuration = duration * 1000;
@@ -4001,7 +4100,8 @@
               stopYouTubeTimer();
               setBgPlaying(false);
               els.music.classList.remove("is-playing");
-              els.musicLabel.textContent = "YouTube";
+              els.musicLabel.textContent = autoplayNeedsTap() ? "Toque para ouvir" : "YouTube";
+              els.music.classList.toggle("is-needs-tap", autoplayNeedsTap());
               els.musicToggle.setAttribute("aria-label", "Tocar no YouTube");
               state.startApplied = false;
               state.youtubeStartPending = false;
@@ -4221,6 +4321,10 @@
             tryNextSoundCloudCandidate("Essa versão é curta; tentei outra.");
             return;
           }
+          validateStartDuration(state.scDuration / 1000);
+          if (state.startAt > 0 && !state.startApplied) {
+            applySoundCloudStart();
+          }
           renderMusic();
           renderStartField();
           scheduleHash();
@@ -4246,6 +4350,7 @@
         if (state.pendingPlay) {
           state.pendingPlay = false;
           playSoundCloud();
+          armAutoplayNotice(track);
         }
       });
 
@@ -4254,6 +4359,8 @@
         clearTimeout(scPlayTimer);
         scPlayTimer = 0;
         state.scPlaying = true;
+        state.autoStartPending = false;
+        els.music.classList.remove("is-needs-tap");
         els.music.classList.add("is-playing");
         setBgPlaying(true);
         els.musicLabel.textContent = "Tocando agora";
@@ -4267,7 +4374,8 @@
         state.scPlaying = false;
         els.music.classList.remove("is-playing");
         setBgPlaying(false);
-        els.musicLabel.textContent = "SoundCloud";
+        els.musicLabel.textContent = autoplayNeedsTap() ? "Toque para ouvir" : "SoundCloud";
+        els.music.classList.toggle("is-needs-tap", autoplayNeedsTap());
         els.musicToggle.setAttribute("aria-label", "Tocar no SoundCloud");
         setProgressUI(state.scPosition, state.scDuration || track.durationMs || 0);
       });
@@ -4607,13 +4715,15 @@
         ? (track.artist ? `${track.artist} · sem prévia` : "Sem prévia disponível")
         : (track.artist || "");
     }
+    const previewPlaying = track.mode === "preview" && state.audio
+      && state.audioTrackId === track.id && !state.audio.paused;
     els.musicLabel.textContent = isSpotify
-      ? (state.spotifyPaused ? "Spotify" : "Tocando agora")
+      ? (state.spotifyPaused ? (autoplayNeedsTap() ? "Toque para ouvir" : "Spotify") : "Tocando agora")
       : isYouTube
-        ? (state.youtubePlaying ? "Tocando agora" : "YouTube")
+        ? (state.youtubePlaying ? "Tocando agora" : (autoplayNeedsTap() ? "Toque para ouvir" : "YouTube"))
         : isSoundCloud
-          ? (state.scPlaying ? "Tocando agora" : "SoundCloud")
-          : (track.previewUrl ? "Tocando agora" : "Sem prévia");
+          ? (state.scPlaying ? "Tocando agora" : (autoplayNeedsTap() ? "Toque para ouvir" : "SoundCloud"))
+          : (track.previewUrl ? (previewPlaying ? "Tocando agora" : (autoplayNeedsTap() ? "Toque para ouvir" : "Prévia")) : "Sem prévia");
     els.iconSpotify.hidden = !isSpotify;
     els.iconPreview.hidden = isSpotify || isYouTube || isSoundCloud;
     if (els.iconYouTube) els.iconYouTube.hidden = !isYouTube;
@@ -4658,6 +4768,8 @@
       setProgressUI(0, 0);
     }
 
+    const pausedNow = !els.music.classList.contains("is-playing");
+    els.music.classList.toggle("is-needs-tap", autoplayNeedsTap() && pausedNow);
     renderStartField();
   }
 
@@ -4672,6 +4784,8 @@
     state.spotifyDuration = 0;
     state.spotifyPaused = true;
     state.pendingPlay = false;
+    state.autoStartPending = Boolean(state.autoplay);
+    state.autoplayNoticeShown = false;
     state.track = track;
     resetStartSeek();
 
@@ -4694,6 +4808,7 @@
         setupSpotifyPlayer(track);
       } else {
         state.playerMode = "embed";
+        state.autoStartPending = false;
       }
     }
 
@@ -5062,8 +5177,9 @@
     const tail = document.createElement("span");
     tail.className = "result__tail";
     const badge = document.createElement("span");
-    badge.className = `result__badge${item.source === "soundcloud" ? " result__badge--sc" : ""}`;
-    badge.textContent = item.source === "soundcloud" ? "Completa" : "30s";
+    const full = item.source === "soundcloud" || item.source === "youtube";
+    badge.className = `result__badge${full ? " result__badge--sc" : ""}`;
+    badge.textContent = full ? "Completa" : "30s";
     const time = document.createElement("span");
     time.className = "result__time";
     time.textContent = item.durationMs ? fmtTime(item.durationMs / 1000) : "";
@@ -5159,7 +5275,7 @@
     state.canonicalArtist = "";
     state.canonicalDurationMs = 0;
     els.musicSpinner.hidden = false;
-    setMusicHint("Buscando no SoundCloud…");
+    setMusicHint("Buscando a versão completa…");
 
     const itunesPromise = (async () => {
       let items = await itunesSearch(term, "BR");
@@ -5172,21 +5288,10 @@
       return normalized;
     })().catch(() => []);
 
-    let fallbackShown = false;
-    let fallbackTimer = 0;
-    const showFallback = async () => {
-      if (seq !== state.searchSeq || fallbackShown) return;
-      const items = await itunesPromise;
-      if (seq !== state.searchSeq || fallbackShown) return;
-      if (!items.length) return;
-      fallbackShown = true;
-      renderResults(items.slice(0, 6));
-      setMusicHint("Ainda buscando no SoundCloud… Estes resultados tocam uma prévia de 30s.");
-    };
-    fallbackTimer = setTimeout(showFallback, 3000);
+    const youtubePromise = youtubeSearch(term).catch(() => []);
 
     try {
-      const soundcloudItems = await soundcloudSearch(term);
+      const soundcloudItems = await soundcloudSearch(term).catch(() => []);
       if (seq !== state.searchSeq) return;
       if (soundcloudItems.length) {
         renderResults(soundcloudItems);
@@ -5194,36 +5299,35 @@
         return;
       }
 
-      if (!fallbackShown) {
-        const items = await itunesPromise;
-        if (seq !== state.searchSeq) return;
-        if (items.length) {
-          renderResults(items.slice(0, 6));
-          setMusicHint("O SoundCloud não respondeu agora. Estes resultados tocam prévias de 30s.");
-        } else {
-          showResults([noteRow("Nada encontrado. Tenta com o nome do artista junto.")]);
-          setMusicHint("");
-        }
+      const youtubeItems = await youtubePromise;
+      if (seq !== state.searchSeq) return;
+      if (youtubeItems.length) {
+        renderResults(youtubeItems);
+        setMusicHint("Versões completas no YouTube. Escolha uma e dê play.");
+        return;
+      }
+
+      const items = await itunesPromise;
+      if (seq !== state.searchSeq) return;
+      if (items.length) {
+        renderResults(items.slice(0, 6));
+        setMusicHint("Sem versão completa agora. Estas são prévias de 30s.");
       } else {
-        setMusicHint("O SoundCloud não respondeu agora. Estes resultados tocam prévias de 30s.");
+        showResults([noteRow("Nada encontrado. Tenta com o nome do artista junto.")]);
+        setMusicHint("");
       }
     } catch {
       if (seq !== state.searchSeq) return;
-      if (!fallbackShown) {
-        const items = await itunesPromise;
-        if (seq !== state.searchSeq) return;
-        if (items.length) {
-          renderResults(items.slice(0, 6));
-          setMusicHint("Sem resposta do SoundCloud agora. Estes resultados tocam prévias de 30s.");
-        } else {
-          showResults([noteRow("A busca falhou agora. Tenta de novo.")]);
-          setMusicHint("");
-        }
+      const items = await itunesPromise;
+      if (seq !== state.searchSeq) return;
+      if (items.length) {
+        renderResults(items.slice(0, 6));
+        setMusicHint("Sem resposta dos serviços agora. Estas são prévias de 30s.");
       } else {
-        setMusicHint("Sem resposta do SoundCloud agora. Estes resultados tocam prévias de 30s.");
+        showResults([noteRow("A busca falhou agora. Tenta de novo.")]);
+        setMusicHint("");
       }
     } finally {
-      clearTimeout(fallbackTimer);
       if (seq === state.searchSeq) els.musicSpinner.hidden = true;
     }
   }
@@ -5326,6 +5430,17 @@
     if (!item) return;
     if (item.source === "soundcloud") {
       selectSoundCloudResult(item, opts);
+    } else if (item.source === "youtube") {
+      loadYouTubeTrack(item.id, {
+        silent: opts.silent,
+        meta: {
+          title: item.title,
+          artist: item.artist,
+          cover: item.cover,
+          durationMs: item.durationMs
+        }
+      });
+      if (!opts.silent) toast("Versão completa no YouTube. Dá play para ouvir.");
     } else {
       selectItunes(item.raw || item, opts);
     }
@@ -5345,6 +5460,63 @@
       renderMusic();
       scheduleHash();
     } catch {}
+  }
+
+  async function fallbackSpotifyToFull(track) {
+    if (!track || track.mode !== "spotify" || track.type !== "track" || track.fallbackTried) return;
+    track.fallbackTried = true;
+    const canonical = Math.max(track.durationMs || 0, state.canonicalDurationMs || 0);
+    const term = `${track.title} ${track.artist || ""}`.trim();
+    const resetPreviewStart = () => {
+      if (state.track !== track || state.startAt <= 0) return;
+      const previewDuration = (state.spotifyDuration || 0) / 1000;
+      if (!(previewDuration > 0 && previewDuration < 60000)) return;
+      state.startAt = 0;
+      resetStartSeek();
+      renderStartField();
+      scheduleHash();
+      try { spotifyController?.seek(0); } catch {}
+      toast("Sem versão completa agora. A prévia vai começar do início.");
+    };
+    try {
+      const items = await youtubeSearch(term);
+      if (state.track !== track) return;
+      const wanted = norm(track.title);
+      const ranked = items
+        .filter((item) => item.source === "youtube" && (!item.durationMs || item.durationMs >= 60000))
+        .map((item) => {
+          let score = 0;
+          const title = norm(item.title);
+          const artist = norm(item.artist);
+          if (title.includes(wanted) || wanted.includes(title)) score += 4;
+          if (track.artist && artist.includes(norm(track.artist))) score += 2;
+          if (canonical > 0 && item.durationMs > 0) {
+            score += Math.max(0, 2 - Math.abs(item.durationMs - canonical) / canonical * 4);
+          }
+          return { item, score };
+        })
+        .sort((a, b) => b.score - a.score);
+      const best = ranked.find((entry) => entry.score >= 4)?.item || ranked[0]?.item;
+      if (!best) {
+        resetPreviewStart();
+        return;
+      }
+      loadYouTubeTrack(best.id, {
+        silent: true,
+        force: true,
+        meta: {
+          title: track.title,
+          artist: track.artist,
+          cover: track.cover,
+          durationMs: canonical || best.durationMs
+        }
+      });
+      if (state.track?.mode === "youtube") {
+        toast("O Spotify liberou só a prévia; usei a versão completa no YouTube.");
+      }
+    } catch {
+      resetPreviewStart();
+    }
   }
 
   async function loadSpotifyLink(raw, opts = {}) {
@@ -5519,7 +5691,7 @@
       if (!opts.silent) toast("Esse link do YouTube não é válido.");
       return;
     }
-    if (opts.silent && state.musicTouched) return;
+    if (opts.silent && !opts.force && state.musicTouched) return;
 
     const meta = opts.meta || null;
     const savedCover = meta && meta.cover && /^https:\/\/i\.ytimg\.com\/vi\//i.test(meta.cover)
@@ -5536,6 +5708,7 @@
 
     setTrack(track);
     if (!opts.silent) {
+      state.musicTouched = true;
       els.musicInput.value = `${track.title}${track.artist ? ` — ${track.artist}` : ""}`;
       els.musicInput.blur();
       closeResults();
@@ -6215,6 +6388,28 @@
       event.stopPropagation();
       toggleCurrentPlayback();
     });
+
+    window.addEventListener("pointerdown", (event) => {
+      if (!state.autoplay || !state.autoStartPending || !state.track) return;
+      if (event.target instanceof Element && event.target.closest("#music")) return;
+      const track = state.track;
+      let attempted = false;
+      if (track.mode === "spotify" && spotifyController && state.spotifyPaused) {
+        if (state.startAt > 0 && !state.startApplied) requestSpotifyStart();
+        try { spotifyController.play(); } catch {}
+        attempted = true;
+      } else if (track.mode === "soundcloud" && scWidget && state.scReady && !state.scPlaying) {
+        playSoundCloud(true);
+        attempted = true;
+      } else if (track.mode === "youtube" && youtubePlayer && state.youtubeReady && !state.youtubePlaying) {
+        playYouTube();
+        attempted = true;
+      } else if (track.mode === "preview" && state.audio && state.audio.paused) {
+        playPreview();
+        attempted = true;
+      }
+      if (attempted) state.autoStartPending = false;
+    }, true);
 
     els.musicExpand.addEventListener("click", (event) => {
       event.stopPropagation();

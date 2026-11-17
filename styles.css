@@ -1837,6 +1837,17 @@ a { color: inherit; }
 .music[data-mode="youtube"].is-playing .music__toggle { animation-name: togglePulseYt; }
 .music[data-mode="soundcloud"].is-playing .music__toggle { animation-name: togglePulseSc; }
 
+.music.is-needs-tap .music__toggle,
+.music.is-needs-tap .music__play {
+  opacity: 1;
+  animation: needsTap 1.7s ease-in-out infinite;
+}
+
+@keyframes needsTap {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(255, 255, 255, .14); }
+}
+
 @keyframes togglePulseYt {
   0% { box-shadow: 0 0 0 0 rgba(255, 78, 69, .4); }
   70% { box-shadow: 0 0 0 8px rgba(255, 78, 69, 0); }
