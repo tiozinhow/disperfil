@@ -22,8 +22,7 @@
   const PHOTON = "https://photon.komoot.io/api/";
   const PIPED_APIS = [
     "https://api.piped.private.coffee",
-    "https://pipedapi.ducks.party",
-    "https://pipedapi.kavin.rocks"
+    "https://pipedapi.ducks.party"
   ];
 
   const SPOTIFY_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0Zm5.5 17.3a.75.75 0 0 1-1.03.25c-2.82-1.72-6.37-2.11-10.55-1.16a.75.75 0 1 1-.33-1.46c4.57-1.04 8.5-.6 11.66 1.34.35.22.46.68.25 1.03Zm1.47-3.27a.94.94 0 0 1-1.29.31c-3.23-1.98-8.15-2.56-11.97-1.4a.94.94 0 1 1-.55-1.8c4.36-1.32 9.78-.67 13.5 1.6.44.27.58.85.31 1.29Zm.13-3.4C15.24 8.34 8.83 8.12 5.13 9.24a1.13 1.13 0 1 1-.66-2.16c4.25-1.29 11.32-1.04 15.77 1.6a1.13 1.13 0 0 1-1.15 1.95Z"/></svg>`;
@@ -449,6 +448,7 @@
   const youtubeSearchCache = new Map();
   const soundcloudSearchCache = new Map();
   const locationCache = new Map();
+  let jinaBlocked = false;
   let musicHintDefault = "";
   let searchTimer = 0;
   let locationTimer = 0;
@@ -4969,6 +4969,7 @@
   async function soundcloudSearch(term) {
     const key = norm(term);
     if (!key) return [];
+    if (jinaBlocked) return [];
     const cached = soundcloudSearchCache.get(key);
     if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.items.slice();
 
@@ -4979,6 +4980,7 @@
         signal: controller.signal,
         headers: { accept: "text/plain" }
       });
+      if (res.status === 401) jinaBlocked = true;
       if (!res.ok) throw new Error("SoundCloud search");
       const parsed = parseSoundCloudSearch(await res.text());
       const ranked = rankSoundCloud(parsed, term);
@@ -5061,6 +5063,7 @@
   }
 
   async function jinaYouTubeSearch(term) {
+    if (jinaBlocked) return [];
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
@@ -5068,6 +5071,7 @@
         signal: controller.signal,
         headers: { accept: "text/plain" }
       });
+      if (res.status === 401) jinaBlocked = true;
       if (!res.ok) throw new Error("YouTube search");
       return parseJinaYouTube(await res.text());
     } finally {
