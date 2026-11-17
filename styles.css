@@ -2075,10 +2075,14 @@ a { color: inherit; }
 .stage__share-label { flex: none; }
 
 .stage__share-prefix {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   color: var(--ink);
   opacity: .72;
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stage__share input {

@@ -6613,13 +6613,14 @@
       document.body.classList.add("is-sharing");
       els.shareHeading.hidden = false;
     }
+    const basePath = new URL(document.baseURI).pathname.replace(/\/+$/, "");
     if (els.sharePrefix) {
-      els.sharePrefix.textContent = isLocalHost() ? "#k=" : `${location.host}/`;
+      els.sharePrefix.textContent = isLocalHost() ? "#k=" : `${location.host}${basePath}/`;
     }
     if (els.shareNameHint) {
       els.shareNameHint.textContent = isLocalHost()
         ? "Opcional. Sem nome, o link curto usa um código aleatório. O nome precisa estar livre."
-        : `Opcional. No site publicado, o link fica ${location.host}/seu-nome. O nome precisa estar livre.`;
+        : `Opcional. No site publicado, o link fica ${location.host}${basePath}/seu-nome. O nome precisa estar livre.`;
     }
 
     const savedBg = params.get("bg");
